@@ -1,88 +1,91 @@
-"use strict"
+'use strict';
 
-const
-  request = require('request'),
-  querystring = require('querystring'),
-  _ = require('underscore');
-
+const fs = require('fs');
+const request = require('request');
+const querystring = require('querystring');
 
 class Discover {
-  constructor(opts) {
-    if (!opts.url) {
-      throw 'The watcher url is requried';
+  constructor() {
+    let configFile = 'cog.json';
+    let config = {};
+    if (fs.existsSync(configFile)) {
+      config = JSON.parse(fs.readFileSync(configFile, {encoding: 'utf-8'}));
     }
-    this.url = opts.url;
+
+    this.url = config.watcher || 'http://localhost:7777';
   }
 
-  find(query, cb, opts) {
-    query = _.extend(
-      { '$unwind': '$cogs' },
-      (typeof query == 'string' ? { 'cogs.id': query } : query),
-      opts
-    );
-    query['cogs.status'] = 'running';
+  find(query, opts) {
+    return new Promise((resolve, reject) => {
+      opts = opts || {};
+      query = Object.assign(
+        {'$unwind': '$cogs'},
+        (typeof query === 'string') ? { 'cogs.id': query } : query,
+        opts
+      );
+      query['connected'] = true;
+      query['cogs.status'] = 'running';
 
-    var url = `${this.url}/api/machine?${querystring.stringify(query)}`;
+      let url = `${this.url}/api/machine?${querystring.stringify(query)}`;
 
-    request(url, (err, response, body) => {
-      if (err) {
-        return cb('Error processing request');
-      }
+      request(url, (err, response, body) => {
+        if (err) {
+          reject('Error processing request');
+        }
 
-      try {
-        var machines = JSON.parse(body).entries;
-        var map = _.map(machines, (machine) => {
+        let machines;
+        try {
+          machines = JSON.parse(body).entries;
+        }
+        catch (err) {
+          reject('Error processing json');
+        }
+        if (!machines || machines.length === 0) {
+          reject('Could not find any cogs matching query');
+          return;
+        }
+        let map = machines.map((machine) => {
           return new Cog(machine.cogs);
         });
-      }
-      catch(err) {
-        return cb('Error processing json'); 
-      }
-      cb(null, map);
+        resolve(map);
+      });
     });
   }
 
-  findOne(query, cb) {
-    this.find(query, function(err, cogs){
-      if (err) {
-        return cb(err);
-      }
-      return cb(null, cogs[0]);
-    }, { '$limit': 1 });
+  findOne(query) {
+    return new Promise((resolve, reject) => {
+      this.find(query, { '$limit': 1 })
+        .then((cogs) => resolve(cogs[0]))
+        .catch((err) => reject(err));
+    });
   }
 
   findOneAndPost(query, path, data, cb) {
-    this.findOne(query, (err, cog) => {
-      if (err) {
-        return cb(err);
-      }
+    this.findOne(query).then((cog) => {
       if (!cog) {
-        return cb('Cog not found');
+        throw new Error('Cog not found');
       }
-      cog.httpPost(path, data, cb);
+      return cog.httpPost(path, data);
     });
   }
 
   findOneAndGet(query, path, cb) {
-    this.findOne(query, (err, cog) => {
-      if (err) {
-        return cb(err);
-      }
+    this.findOne(query).then((cog) => {
       if (!cog) {
-        return cb('Cog not found');
+        throw new Error('Cog not found');
       }
-      cog.httpGet(path, cb);
+      return cog.httpGet(path);
     });
   }
 }
 
-class Cog{
+class Cog {
   constructor(json) {
     this.json = json;
   }
 
   get host() {
-    var h = this.json.host;
+    let h = this.json.host;
     if (h && h.endsWith('/')) {
       h = h.slice(0, -1);
     }
@@ -97,17 +100,33 @@ class Cog{
     return `${this.host}:${this.port}/${path || ''}`;
   }
 
-  httpPost(path, data, cb) {
-    return request.post({
-      url: this.url(path),
-      body: JSON.stringify(data),
-      headers: { 'content-type': 'application/json' }
-    }, cb);
+  httpPost(path, data) {
+    return new Promise((resolve, reject) => {
+      request.post({
+        url: this.url(path),
+        body: JSON.stringify(data),
+        headers: { 'content-type': 'application/json' }
+      }, (err, response, body) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve(response, body);
+      });
+    });
   }
 
-  httpGet(path, cb) {
-    return request.get({ url: this.url(path) }, cb);
+  httpGet(path) {
+    return new Promise((resolve, reject) => {
+      request.get({ url: this.url(path) }, (err, response, body) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve(response, body);
+      });
+    });
   }
 }
 
-module.exports = Discover;
+module.exports = new Discover();

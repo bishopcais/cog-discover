@@ -1,18 +1,16 @@
 {
-
   "name": "@cisl/crun-discover",
   "version": "1.0.0",
   "dependencies": {
-    "request": "^2.87.0",
-    "underscore": "^1.8.3"
+    "request": "^2.88.1"
   },
   "deprecated": false,
-  "description": "Discover module lets you discover cogs that're registered and running on a crun server.",
-  "license": "ISC",
+  "description": "Get details about running cogs on crun-server",
+  "license": "MIT",
   "main": "discover.js",
   "repository": {
     "type": "git",
-    "url": "git@github.ibm.com:CEL/crun.discover.git"
+    "url": "http://internal.cisl.rpi.edu/code/libraries/crun-discover"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"

@@ -1,12 +1,9 @@
-var Discover = require ('./discover');
+'use strict';
 
-var dc = new Discover({ url: 'http://localhost:7777' });
+const discover = require('./discover');
 
-dc.findOne({ 'cogs.tags': 'green' }, function(err, cog) {
-  cog.httpGet('api', (err, res, body) =>{
-    if (err) return console.log(err);
-    console.log(body);
-  });
+discover.findOne({'cogs.tags': 'transcript-displayer'}).then(cog => {
+  console.log(cog);
 });
 
 // dc.findOneAndPost('delta', 'api', { message: 'testing2' }, (err, res, body) =>{
