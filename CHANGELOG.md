@@ -1,5 +1,8 @@
 # Changelog
 
+## v2.0.1
+* Fix referring to invalid request dependency version
+
 ## v2.0.0
 * Only return cogs that are on connected machines
 * Rewrite interface to use promises instead of callbacks
